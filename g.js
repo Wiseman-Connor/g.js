@@ -49,10 +49,34 @@
 
 
         KeyHandler.isPressed = function(keyName) {
+
+        };
+
+        var getKeyName = function(e) {
+            e = e || window.event;
+            var key = (which in e) ? e.which : e.keyCode;
+            return keyMap[key];
+        };
+
+        var pressKey = function(e) {
+            if (e.defaultPrevented()) {
+                return;
+            }
+
+
+            var keyName = getKeyName(e);
             if (!pressedKeys.hasOwnProperty(keyName)) {
                 pressedKeys[keyName] = true;
+                console.log(pressedKeys);
             }
         };
+
+        var releaseKey = function(e) {
+            console.log(e);
+        };
+
+        document.addEventListener('keydown', pressKey);
+        document.addEventListener('keyup', releaseKey);
         
     })(exports.Key = {});
 
