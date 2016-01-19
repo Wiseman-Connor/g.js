@@ -59,7 +59,7 @@
         };
 
         var pressKey = function(e) {
-            if (e.defaultPrevented()) {
+            if (e.defaultPrevented) {
                 return;
             }
 
