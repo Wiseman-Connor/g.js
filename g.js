@@ -20,8 +20,12 @@
          * @argument {Number} height - A value to set as the height.
          */
         CanvasHandler.setDimensions = function(width, height) {
-            gameCanvas.setAttribute('width', width);
-            gameCanvas.setAttribute('height', height);
+            CanvasHandler.width = width;
+            CanvasHandler.height = height;
+
+
+            gameCanvas.setAttribute('width', CanvasHandler.width);
+            gameCanvas.setAttribute('height', CanvasHandler.height);
         };
 
 
@@ -170,10 +174,15 @@
          * @todo Needs some way to set an object's "depth"
          */
         var updateAndRedrawObjects = function() {
+            exports.Canvas.clear();
+
+
             for (var object in objectList) {
                 objectList[object].__updateFunction();
                 objectList[object].__redrawFunction();
             }
+
+
             requestAnimationFrame(updateAndRedrawObjects);
         };
 
@@ -296,10 +305,46 @@
 g.Canvas.setDimensions(320, 240);
 g.Object('Player').setProperties({
     x: 152, y: 205,
-    width: 16, height: 16
+    width: 16, height: 16,
+    maxSpeed: 5,
+    friction: 0.85, gravity: 0.5,
+    xVelocity: 0, yVelocity: 0
 });
 g.Object('Player').update = function() {
-    
+    this.onKeyPress('LEFT', function() {
+        if (this.xVelocity > -(this.maxSpeed)) {
+            this.xVelocity--;
+        }
+    });
+    this.onKeyPress('RIGHT', function() {
+        if (this.xVelocity < this.maxSpeed) {
+            this.xVelocity++;
+        }
+    });
+    this.onKeyPress('UP', function() {
+        if (!this.isJumping) {
+            this.isJumping = true;
+            this.yVelocity = -(this.maxSpeed * 2);
+        }
+    });
+
+
+    this.xVelocity *= this.friction;
+    this.yVelocity += this.gravity;
+    this.x += this.xVelocity;
+    this.y += this.yVelocity;
+
+
+    if (this.x >= g.Canvas.width - this.width) {
+        this.x = g.Canvas.width - this.width;
+    }
+    else if (this.x <= 0) {
+        this.x = 0;
+    }
+    if (this.y >= g.Canvas.height - this.height) {
+        this.y = g.Canvas.height - this.height;
+        this.isJumping = false;
+    }
 };
 g.Object('Player').redraw = function() {
     g.Canvas.drawSurface.fillStyle = 'rgb(200, 0, 0)';
