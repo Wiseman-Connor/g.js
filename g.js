@@ -145,28 +145,147 @@
 
 
     (function() {
+        // Provide cross-browser support for requestAnimationFrame.
+        var requestAnimationFrame = (function(){
+            return  window.requestAnimationFrame ||
+                    window.webkitRequestAnimationFrame ||
+                    window.mozRequestAnimationFrame    ||
+                    function(callback) {
+                        window.setTimeout(callback, 1000 / 60);
+                    };
+        })();
+
+
+        /**
+         * A list of objects to be populated manually.
+         * @namespace
+         */
         var objectList = {};
 
 
+        /**
+         * Updates and redraws all the objects in the game's object list
+         * in sequence.
+         * @private
+         * @todo Needs some way to set an object's "depth"
+         */
+        var updateAndRedrawObjects = function() {
+            for (var object in objectList) {
+                objectList[object].__updateFunction();
+                objectList[object].__redrawFunction();
+            }
+            requestAnimationFrame(updateAndRedrawObjects);
+        };
+
+
+        // Begin the game's animation loop.
+        document.addEventListener('DOMContentLoaded', function(e) {
+            requestAnimationFrame(updateAndRedrawObjects);
+        });
+
+
+        /**
+         * @class
+         * @classdesc A new GameObject.
+         * @argument {String} name - The name of the object.
+         * @private
+         */
         var GameObject = function(name) {
             Object.defineProperty(this, 'name', {
+                enumerable: true,
                 value: name
             });
-        }
+        };
 
 
         /**
          * @private
          */
-        GameObject.prototype.__updateFunction = function() {
-            if (this.hasOwnProperty('update') && typeof this.update === 'function') {
-                this.update();
+        Object.defineProperty(GameObject.prototype, 'setProperties', {
+            enumerable: true,
+            value: function(properties) {
+                for (var property in properties) {
+                    this[property] = properties[property];
+                }
+                return this;
             }
-        };
+        });
 
 
-        exports.Object = function() {
-            
+        /**
+         * @private
+         */
+        Object.defineProperty(GameObject.prototype, '__updateFunction', {
+            value: function() {
+                if (this.hasOwnProperty('update') && typeof this.update === 'function') {
+                    this.update();
+                }
+            }
+        });
+
+
+        /**
+         * @private
+         */
+        Object.defineProperty(GameObject.prototype, '__redrawFunction', {
+            value: function() {
+                if (this.hasOwnProperty('redraw') && typeof this.redraw === 'function') {
+                    this.redraw();
+                }
+            }
+        });
+
+
+        /**
+         * A callback to use for keystate functions.
+         * @callback {KeyState}
+         */
+
+
+        /**
+         * An inline alias for g.Key.isPressed.
+         * @argument {String}    keyName - The name of a key.
+         * @argument {KeyState} callback - A callback function.
+         * @returns {Boolean} Whether the specified key is pressed.
+         */
+        Object.defineProperty(GameObject.prototype, 'onKeyPress', {
+            enumerable: true,
+            value: function(keyName, callback) {
+                if (typeof callback === 'undefined') {
+                    throw new SyntaxError('Argument 2 of onKeyPress in "' + this.name + '" cannot be undefined.');
+                }
+                else if (typeof callback !== 'function') {
+                    throw new TypeError('Argument 2 of onKeyPress in "' + this.name + '" must be a function.');
+                }
+
+
+                if (exports.Key.isPressed(keyName)) {
+                    callback.apply(this);
+                }
+            }
+        });
+
+
+        /**
+         * Creates a new GameObject with the specified name if the name does not
+         * exist in the object list. If it does, retrieves the existing GameObject.
+         * @argument {String} name - The name of the GameObject to retrieve.
+         * @returns {GameObject} The GameObject.
+         */
+        exports.Object = function(name) {
+            var newObject;
+
+
+            if (!objectList.hasOwnProperty(name)) {
+                newObject = new GameObject(name);
+                objectList[name] = newObject;
+            }
+            else {
+                newObject = objectList[name];
+            }
+
+
+            return newObject;
         };
     })();
 
@@ -174,5 +293,15 @@
 })(this.g = this.g || {});
 
 
-console.log(g);
 g.Canvas.setDimensions(320, 240);
+g.Object('Player').setProperties({
+    x: 152, y: 205,
+    width: 16, height: 16
+});
+g.Object('Player').update = function() {
+    
+};
+g.Object('Player').redraw = function() {
+    g.Canvas.drawSurface.fillStyle = 'rgb(200, 0, 0)';
+    g.Canvas.drawSurface.fillRect(this.x, this.y, this.width, this.height);
+};
