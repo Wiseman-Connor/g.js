@@ -213,7 +213,7 @@
          * A list of objects to be populated manually.
          * @namespace
          */
-        var objectList = {};
+        var objectList = [];
 
 
         /**
@@ -226,9 +226,9 @@
             exports.Canvas.clear();
 
 
-            for (var object in objectList) {
-                objectList[object].__updateFunction();
-                objectList[object].__redrawFunction();
+            for (var i = 0, totalObjects = objectList.length; i < totalObjects; ++i) {
+                objectList[i].__updateFunction();
+                objectList[i].__redrawFunction();
             }
 
 
@@ -248,11 +248,8 @@
          * @argument {String} name - The name of the object.
          * @private
          */
-        var GameObject = function(name) {
-            Object.defineProperty(this, 'name', {
-                enumerable: true,
-                value: name
-            });
+        exports.Object = function() {
+            objectList.push(this);
 
 
             Object.defineProperty(this, 'keyEvents', {
@@ -263,13 +260,31 @@
 
 
         /**
+         * Creates a new instance of a predefined game object.
+         * @returns {Object} - A new game object.
+         */
+        Object.defineProperty(exports.Object.prototype, 'instance', {
+            value: function() {
+                var newInstance = new this.constructor();
+
+
+                for (var property in this) {
+                    newInstance[property] = this[property];
+                }
+
+
+                return newInstance;
+            }
+        });
+
+
+        /**
          * Transposes a object of properties in key-value form onto a
          * specified GameObject.
          * @argument {Object} properties - A list of objects to transpose.
          * @returns {GameObject} this
          */
-        Object.defineProperty(GameObject.prototype, 'setProperties', {
-            enumerable: true,
+        Object.defineProperty(exports.Object.prototype, 'setProperties', {
             value: function(properties) {
                 for (var property in properties) {
                     this[property] = properties[property];
@@ -284,7 +299,7 @@
          * update logic. Run automatically by requestAnimationFrame.
          * @private
          */
-        Object.defineProperty(GameObject.prototype, '__updateFunction', {
+        Object.defineProperty(exports.Object.prototype, '__updateFunction', {
             value: function() {
                 // Execute all attached key events.
                 for (var keyEvent in this.keyEvents) {
@@ -307,7 +322,7 @@
          * requestAnimationFrame.
          * @private
          */
-        Object.defineProperty(GameObject.prototype, '__redrawFunction', {
+        Object.defineProperty(exports.Object.prototype, '__redrawFunction', {
             value: function() {
                 if (this.hasOwnProperty('redraw') && typeof this.redraw === 'function') {
                     this.redraw();
@@ -328,8 +343,7 @@
          * @argument {String}    keyName - The name of a key.
          * @argument {KeyState} callback - A callback function.
          */
-        Object.defineProperty(GameObject.prototype, 'onKeyPress', {
-            enumerable: true,
+        Object.defineProperty(exports.Object.prototype, 'onKeyPress', {
             value: function(keyName, callback) {
                 if (!this.keyEvents.hasOwnProperty(keyName)) {
                     if (typeof callback === 'undefined') {
@@ -344,29 +358,6 @@
                 }
             }
         });
-
-
-        /**
-         * Creates a new GameObject with the specified name if the name does not
-         * exist in the object list. If it does, retrieves the existing GameObject.
-         * @argument {String} name - The name of the GameObject to retrieve.
-         * @returns {GameObject} The GameObject.
-         */
-        exports.Object = function(name) {
-            var newObject;
-
-
-            if (!objectList.hasOwnProperty(name)) {
-                newObject = new GameObject(name);
-                objectList[name] = newObject;
-            }
-            else {
-                newObject = objectList[name];
-            }
-
-
-            return newObject;
-        };
     })();
 
 
