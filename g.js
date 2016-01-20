@@ -227,8 +227,10 @@
 
 
             for (var i = 0, totalObjects = objectList.length; i < totalObjects; ++i) {
-                objectList[i].__updateFunction();
-                objectList[i].__redrawFunction();
+                if (typeof objectList[i] !== 'undefined') {
+                    objectList[i].__updateFunction();
+                    objectList[i].__redrawFunction();
+                }
             }
 
 
@@ -249,49 +251,217 @@
          * @private
          */
         exports.Object = function() {
+            var objectID = objectList.length;
+
+
+            Object.defineProperty(this, 'objectID', {
+                get: function() {
+                    return objectID;
+                },
+                set: function() {
+                    return;
+                }
+            });
+
+
             objectList.push(this);
 
 
+            var isActive = true,
+                isVisible = true;
+
+
+            Object.defineProperty(this, 'isActive', {
+                get: function() {
+                    return isActive;
+                },
+                set: function(bool) {
+                    isActive = bool;
+                }
+            });
+
+
+            Object.defineProperty(this, 'isVisible', {
+                get: function() {
+                    return isVisible;
+                },
+                set: function(bool) {
+                    isVisible = bool;
+                }
+            });
+
+
             Object.defineProperty(this, 'keyEvents', {
-                configurable: true,
+                value: {}
+            });
+
+
+            Object.defineProperty(this, 'keyReleaseEvents', {
+                value: {}
+            });
+
+
+            Object.defineProperty(this, 'defaultProperties', {
                 value: {}
             });
         };
 
 
         /**
-         * Creates a new instance of a predefined game object.
-         * @returns {Object} - A new game object.
+         * Destroys a specific game object.
          */
-        Object.defineProperty(exports.Object.prototype, 'instance', {
+        Object.defineProperty(exports.Object.prototype, 'destroy', {
             value: function() {
-                var newInstance = new this.constructor();
-
-
-                for (var property in this) {
-                    newInstance[property] = this[property];
+                if (!this.isActive) {
+                    return;
                 }
 
 
+                if (typeof objectList[this.objectID] !== 'undefined' &&
+                    objectList[this.objectID].objectID === this.objectID) {
+                    objectList[this.objectID] = undefined;
+
+
+                    this.isActive = false;
+                    this.isVisible = false;
+
+
+                    if (this.hasOwnProperty('__destroyFunction') && typeof this.__destroyFunction === 'function') {
+                        this.__destroyFunction();
+                    }
+                }
+            }
+        });
+
+
+        /**
+         * Creates a new instance of a predefined game object.
+         * @returns {g.Object} - A new game object.
+         */
+        Object.defineProperty(exports.Object.prototype, 'instance', {
+            value: function() {
+                // Create a new instance of a game object.
+                var newInstance = new this.constructor();
+
+
+                /* If parent object is active, transpose the properties and methods into
+                   the new object. */
+                if (this.isActive) {
+                    for (var property in this.defaultProperties) {
+                        newInstance[property] = this.defaultProperties[property];
+                        newInstance.defaultProperties[property] = this.defaultProperties[property];
+                    }
+
+
+                    newInstance.update = this.update;
+                    newInstance.redraw = this.redraw;
+                }
+
+
+                // Return the game object.
                 return newInstance;
             }
         });
 
 
         /**
+         * A callback to use when an object is destroyed.
+         * @callback {OnDestroy}
+         */
+
+
+        /**
+         * Attaches a callback function to a game object that listens for the
+         * object's destruction.
+         * @argument {OnDestroy} callback - A callback function.
+         */
+        Object.defineProperty(exports.Object.prototype, 'onDestroy', {
+            value: function(callback) {
+                if (typeof callback === 'undefined') {
+                    throw new SyntaxError('Argument 1 of onDestroy cannot be undefined.');
+                }
+                else if (typeof callback !== 'function') {
+                    throw new TypeError('Argument 1 of onDestroy in must be a function.');
+                }
+
+
+                /**
+                 * Executes all attached key events, then executes any manually defined
+                 * update logic. Run automatically by requestAnimationFrame.
+                 * @private
+                 */
+                Object.defineProperty(this, '__destroyFunction', {
+                    value: callback
+                });
+            }
+        });
+
+
+        /**
+         * A callback to use for keystate functions.
+         * @callback {KeyState}
+         */
+
+
+        /**
+         * Attaches a callback function to a game object that listens for the
+         * specified key press.
+         * @argument {String}    keyName - The name of a key.
+         * @argument {KeyState} callback - A callback function.
+         */
+        Object.defineProperty(exports.Object.prototype, 'onKeyPress', {
+            value: function(keyName, callback) {
+                if (!this.keyEvents.hasOwnProperty(keyName)) {
+                    if (typeof callback === 'undefined') {
+                        throw new SyntaxError('Argument 2 of onKeyPress cannot be undefined.');
+                    }
+                    else if (typeof callback !== 'function') {
+                        throw new TypeError('Argument 2 of onKeyPress must be a function.');
+                    }
+
+
+                    this.keyEvents[keyName] = callback;
+                }
+            }
+        });
+
+
+        /**
+         * Attaches a callback function to a game object that listens for the
+         * specified key release.
+         * @argument {String}    keyName - The name of a key.
+         * @argument {KeyState} callback - A callback function.
+         */
+        Object.defineProperty(exports.Object.prototype, 'onKeyRelease', {
+            value: function(keyName, callback) {
+                if (typeof callback === 'undefined') {
+                    throw new SyntaxError('Argument 2 of onKeyRelease cannot be undefined.');
+                }
+                else if (typeof callback !== 'function') {
+                    throw new TypeError('Argument 2 of onKeyRelease must be a function.');
+                }
+
+                this.keyReleaseEvents[keyName] = callback;
+            }
+        });
+
+
+        /**
          * Transposes a object of properties in key-value form onto a
-         * specified GameObject.
+         * specified game object.
          * @argument {Object} properties - A list of objects to transpose.
-         * @returns {GameObject} this
+         * @returns {g.Object} this
          */
         Object.defineProperty(exports.Object.prototype, 'setProperties', {
             value: function(properties) {
                 for (var property in properties) {
                     this[property] = properties[property];
+                    this.defaultProperties[property] = properties[property];
                 }
                 return this;
             }
         });
+
 
 
         /**
@@ -301,6 +471,12 @@
          */
         Object.defineProperty(exports.Object.prototype, '__updateFunction', {
             value: function() {
+                // If the object is not active, don't bother with the rest.
+                if (!this.isActive) {
+                    return;
+                }
+
+
                 // Execute all attached key events.
                 for (var keyEvent in this.keyEvents) {
                     if (exports.Key.isPressed(keyEvent)) {
@@ -324,37 +500,15 @@
          */
         Object.defineProperty(exports.Object.prototype, '__redrawFunction', {
             value: function() {
+                // If the object is either not active or not visible, don't redraw it.
+                if (!this.isActive || !this.isVisible) {
+                    return;
+                }
+
+
+                // Execute any manually defined redraw logic.
                 if (this.hasOwnProperty('redraw') && typeof this.redraw === 'function') {
                     this.redraw();
-                }
-            }
-        });
-
-
-        /**
-         * A callback to use for keystate functions.
-         * @callback {KeyState}
-         */
-
-
-        /**
-         * Attaches a callback function to a GameObject that listens for the
-         * specified key.
-         * @argument {String}    keyName - The name of a key.
-         * @argument {KeyState} callback - A callback function.
-         */
-        Object.defineProperty(exports.Object.prototype, 'onKeyPress', {
-            value: function(keyName, callback) {
-                if (!this.keyEvents.hasOwnProperty(keyName)) {
-                    if (typeof callback === 'undefined') {
-                        throw new SyntaxError('Argument 2 of onKeyPress in "' + this.name + '" cannot be undefined.');
-                    }
-                    else if (typeof callback !== 'function') {
-                        throw new TypeError('Argument 2 of onKeyPress in "' + this.name + '" must be a function.');
-                    }
-
-
-                    this.keyEvents[keyName] = callback;
                 }
             }
         });
