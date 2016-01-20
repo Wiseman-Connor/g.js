@@ -34,7 +34,7 @@
          * @argument {String} hexValue - A hexadecimal color value.
          * @returns {String} The hexValue in rgb(r, g, b) format.
          * @author Tim Down
-         * {@link http://stackoverflow.com/a/5624139|Stack Overflow}
+         * @url http://stackoverflow.com/a/5624139
          * @private
          */
         var hexToRGB = function(hexValue) {
@@ -331,15 +331,17 @@
         Object.defineProperty(GameObject.prototype, 'onKeyPress', {
             enumerable: true,
             value: function(keyName, callback) {
-                if (typeof callback === 'undefined') {
-                    throw new SyntaxError('Argument 2 of onKeyPress in "' + this.name + '" cannot be undefined.');
-                }
-                else if (typeof callback !== 'function') {
-                    throw new TypeError('Argument 2 of onKeyPress in "' + this.name + '" must be a function.');
-                }
+                if (!this.keyEvents.hasOwnProperty(keyName)) {
+                    if (typeof callback === 'undefined') {
+                        throw new SyntaxError('Argument 2 of onKeyPress in "' + this.name + '" cannot be undefined.');
+                    }
+                    else if (typeof callback !== 'function') {
+                        throw new TypeError('Argument 2 of onKeyPress in "' + this.name + '" must be a function.');
+                    }
 
 
-                this.keyEvents[keyName] = callback;
+                    this.keyEvents[keyName] = callback;
+                }
             }
         });
 
