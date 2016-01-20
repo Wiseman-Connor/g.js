@@ -34,7 +34,7 @@
          * @argument {String} hexValue - A hexadecimal color value.
          * @returns {String} The hexValue in rgb(r, g, b) format.
          * @author Tim Down
-         * @url http://stackoverflow.com/a/5624139
+         * {@link http://stackoverflow.com/a/5624139|Stack Overflow}
          * @private
          */
         var hexToRGB = function(hexValue) {
