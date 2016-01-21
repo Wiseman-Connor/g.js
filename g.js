@@ -136,7 +136,7 @@
          * @argument {KeyboardEvent} e - A keyboard event.
          * @return {String} The name of the key.
          */
-        var getKeyName = function(e) {
+        KeyHandler.getKeyName = function(e) {
             e = e || window.event;
             var key = (typeof e.which !== 'undefined') ? e.which : e.keyCode;
             return keyMap[key];
@@ -154,7 +154,7 @@
             }
 
 
-            var keyName = getKeyName(e);
+            var keyName = KeyHandler.getKeyName(e);
             if (!pressedKeys.hasOwnProperty(keyName)) {
                 pressedKeys[keyName] = true;
             }
@@ -172,7 +172,7 @@
             }
 
 
-            var keyName = getKeyName(e);
+            var keyName = KeyHandler.getKeyName(e);
             if (pressedKeys.hasOwnProperty(keyName)) {
                 delete pressedKeys[keyName];
             }
@@ -247,19 +247,29 @@
         /**
          * @class
          * @classdesc A generic game object container.
-         * @argument {String} name - The name of the object.
-         * @private
+         * @property {Number}  __objectID
+         * @property {Boolean} __isActive
+         * @property {Boolean} __isVisible
+         * @property {Object}  __keyPressEvents
+         * @property {Object}  __keyReleaseEvents
+         * @property {Object}  __initialProperties
+         * @method destroy
+         * @method instanceOf
+         * @method onDestroy
+         * @method onKeyPress
+         * @method onKeyRelease
+         * @method setProperties
+         * @method __destroyFunction
+         * @method __redrawFunction
+         * @method __updateFunction
          */
         exports.Object = function() {
             var objectID = objectList.length;
 
 
-            Object.defineProperty(this, 'objectID', {
+            Object.defineProperty(this, '__objectID', {
                 get: function() {
                     return objectID;
-                },
-                set: function() {
-                    return;
                 }
             });
 
@@ -271,7 +281,7 @@
                 isVisible = true;
 
 
-            Object.defineProperty(this, 'isActive', {
+            Object.defineProperty(this, '__isActive', {
                 get: function() {
                     return isActive;
                 },
@@ -281,7 +291,7 @@
             });
 
 
-            Object.defineProperty(this, 'isVisible', {
+            Object.defineProperty(this, '__isVisible', {
                 get: function() {
                     return isVisible;
                 },
@@ -291,17 +301,17 @@
             });
 
 
-            Object.defineProperty(this, 'keyEvents', {
+            Object.defineProperty(this, '__keyPressEvents', {
                 value: {}
             });
 
 
-            Object.defineProperty(this, 'keyReleaseEvents', {
+            Object.defineProperty(this, '__keyReleaseEvents', {
                 value: {}
             });
 
 
-            Object.defineProperty(this, 'defaultProperties', {
+            Object.defineProperty(this, '__initialProperties', {
                 value: {}
             });
         };
@@ -312,18 +322,18 @@
          */
         Object.defineProperty(exports.Object.prototype, 'destroy', {
             value: function() {
-                if (!this.isActive) {
+                if (!this.__isActive) {
                     return;
                 }
 
 
-                if (typeof objectList[this.objectID] !== 'undefined' &&
-                    objectList[this.objectID].objectID === this.objectID) {
-                    objectList[this.objectID] = undefined;
+                if (typeof objectList[this.__objectID] !== 'undefined' &&
+                    objectList[this.__objectID].__objectID === this.__objectID) {
+                    objectList[this.__objectID] = undefined;
 
 
-                    this.isActive = false;
-                    this.isVisible = false;
+                    this.__isActive = false;
+                    this.__isVisible = false;
 
 
                     if (this.hasOwnProperty('__destroyFunction') && typeof this.__destroyFunction === 'function') {
@@ -338,7 +348,7 @@
          * Creates a new instance of a predefined game object.
          * @returns {g.Object} - A new game object.
          */
-        Object.defineProperty(exports.Object.prototype, 'instance', {
+        Object.defineProperty(exports.Object.prototype, 'instanceOf', {
             value: function() {
                 // Create a new instance of a game object.
                 var newInstance = new this.constructor();
@@ -346,10 +356,10 @@
 
                 /* If parent object is active, transpose the properties and methods into
                    the new object. */
-                if (this.isActive) {
-                    for (var property in this.defaultProperties) {
-                        newInstance[property] = this.defaultProperties[property];
-                        newInstance.defaultProperties[property] = this.defaultProperties[property];
+                if (this.__isActive) {
+                    for (var property in this.__initialProperties) {
+                        newInstance[property] = this.__initialProperties[property];
+                        newInstance.__initialProperties[property] = this.__initialProperties[property];
                     }
 
 
@@ -391,6 +401,7 @@
                  * @private
                  */
                 Object.defineProperty(this, '__destroyFunction', {
+                    configurable: true,
                     value: callback
                 });
             }
@@ -411,16 +422,28 @@
          */
         Object.defineProperty(exports.Object.prototype, 'onKeyPress', {
             value: function(keyName, callback) {
-                if (!this.keyEvents.hasOwnProperty(keyName)) {
-                    if (typeof callback === 'undefined') {
-                        throw new SyntaxError('Argument 2 of onKeyPress cannot be undefined.');
-                    }
-                    else if (typeof callback !== 'function') {
-                        throw new TypeError('Argument 2 of onKeyPress must be a function.');
-                    }
+                if (typeof callback === 'undefined') {
+                    throw new SyntaxError('Argument 2 of onKeyPress cannot be undefined.');
+                }
+                else if (typeof callback !== 'function') {
+                    throw new TypeError('Argument 2 of onKeyPress must be a function.');
+                }
 
 
-                    this.keyEvents[keyName] = callback;
+                /* If a key press event is already associated with the specified key name,
+                   combine the previous event callback with the new one. */
+                if (this.__keyPressEvents.hasOwnProperty(keyName)) {
+                    var originalCallback = this.__keyPressEvents[keyName];
+                    var combinedCallback = function() {
+                        originalCallback.call(this);
+                        callback();
+                    };
+
+
+                    this.__keyPressEvents[keyName] = combinedCallback;
+                }
+                else {
+                    this.__keyPressEvents[keyName] = callback;
                 }
             }
         });
@@ -441,7 +464,25 @@
                     throw new TypeError('Argument 2 of onKeyRelease must be a function.');
                 }
 
-                this.keyReleaseEvents[keyName] = callback;
+
+                /* If an event listener for the specified keyname already exists, remove
+                   it before re-attaching to prevent duplicate listeners. */
+                if (this.__keyReleaseEvents.hasOwnProperty(keyName)) {
+                    document.removeEventListener('keyup', this.__keyReleaseEvents[keyName]);
+                }
+
+
+                /* Create a wrapper function to execute the user-defined callback.
+                   Bind it to the current object. */
+                this.__keyReleaseEvents[keyName] = function(e) {
+                    if (this.__isActive && exports.Key.getKeyName(e) === keyName) {
+                        callback();
+                    }
+                }.bind(this);
+
+
+                // Add a new event listener with the wrapper function.
+                document.addEventListener('keyup', this.__keyReleaseEvents[keyName]);
             }
         });
 
@@ -456,39 +497,9 @@
             value: function(properties) {
                 for (var property in properties) {
                     this[property] = properties[property];
-                    this.defaultProperties[property] = properties[property];
+                    this.__initialProperties[property] = properties[property];
                 }
                 return this;
-            }
-        });
-
-
-
-        /**
-         * Executes all attached key events, then executes any manually defined
-         * update logic. Run automatically by requestAnimationFrame.
-         * @private
-         */
-        Object.defineProperty(exports.Object.prototype, '__updateFunction', {
-            value: function() {
-                // If the object is not active, don't bother with the rest.
-                if (!this.isActive) {
-                    return;
-                }
-
-
-                // Execute all attached key events.
-                for (var keyEvent in this.keyEvents) {
-                    if (exports.Key.isPressed(keyEvent)) {
-                        this.keyEvents[keyEvent].apply(this);
-                    }
-                }
-
-
-                // Execute any manually defined update logic.
-                if (this.hasOwnProperty('update') && typeof this.update === 'function') {
-                    this.update();
-                }
             }
         });
 
@@ -501,7 +512,7 @@
         Object.defineProperty(exports.Object.prototype, '__redrawFunction', {
             value: function() {
                 // If the object is either not active or not visible, don't redraw it.
-                if (!this.isActive || !this.isVisible) {
+                if (!this.__isActive || !this.__isVisible) {
                     return;
                 }
 
@@ -509,6 +520,35 @@
                 // Execute any manually defined redraw logic.
                 if (this.hasOwnProperty('redraw') && typeof this.redraw === 'function') {
                     this.redraw();
+                }
+            }
+        });
+
+
+        /**
+         * Executes all attached key events, then executes any manually defined
+         * update logic. Run automatically by requestAnimationFrame.
+         * @private
+         */
+        Object.defineProperty(exports.Object.prototype, '__updateFunction', {
+            value: function() {
+                // If the object is not active, don't bother with the rest.
+                if (!this.__isActive) {
+                    return;
+                }
+
+
+                // Execute all attached key events.
+                for (var keyEvent in this.__keyPressEvents) {
+                    if (exports.Key.isPressed(keyEvent)) {
+                        this.__keyPressEvents[keyEvent].call(this);
+                    }
+                }
+
+
+                // Execute any manually defined update logic.
+                if (this.hasOwnProperty('update') && typeof this.update === 'function') {
+                    this.update();
                 }
             }
         });
