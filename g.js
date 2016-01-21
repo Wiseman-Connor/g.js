@@ -1,11 +1,23 @@
 'use strict';
 
+
 /**
  * @author Connor Wiseman
+ * @namespace
+ * @property {Object} Canvas
+ * @property {Object} KeyHandler
+ * @property {Object} Object
  */
 (function(exports) {
 
 
+    /**
+     * @namespace
+     * @property {CanasRenderingContext2D} drawSurface
+     * @method setDimensions
+     * @method drawRectangle
+     * @method clear
+     */
     (function(CanvasHandler) {
         var gameCanvas = document.createElement('canvas');
 
@@ -93,6 +105,12 @@
     })(exports.Canvas = {});
 
 
+    /**
+     * @namespace
+     * @method getKeyName
+     * @method interrupt
+     * @method isPressed
+     */
     (function(KeyHandler) {
         /**
          * An object to be populated with pressed keys.
@@ -119,6 +137,30 @@
 
 
         /**
+         * Gets the name of a key associated with a specified keyboard event.
+         * @argument {KeyboardEvent} e - A keyboard event.
+         * @return {String} The name of the key.
+         */
+        KeyHandler.getKeyName = function(e) {
+            e = e || window.event;
+            var key = (typeof e.which !== 'undefined') ? e.which : e.keyCode;
+            return keyMap[key];
+        };
+
+
+        /**
+         * Sets the specified key name in the list of pressed keys to false.
+         * Used to manually interrupt a key press.
+         * @argument {String} keyName - The name of a key to interrupt.
+         */
+        KeyHandler.interrupt = function(keyName) {
+            if (pressedKeys.hasOwnProperty(keyName) && pressedKeys[keyName]) {
+                pressedKeys[keyName] = false;
+            }
+        };
+
+
+        /**
          * Checks the current state of a specified key name.
          * @argument {String} keyName - The name of the key to check.
          * @returns {Boolean} Whether or not the specified key is pressed.
@@ -128,18 +170,6 @@
                 return pressedKeys[keyName];
             }
             return false;
-        };
-
-
-        /**
-         * Gets the name of a key associated with a specified keyboard event.
-         * @argument {KeyboardEvent} e - A keyboard event.
-         * @return {String} The name of the key.
-         */
-        KeyHandler.getKeyName = function(e) {
-            e = e || window.event;
-            var key = (typeof e.which !== 'undefined') ? e.which : e.keyCode;
-            return keyMap[key];
         };
 
 
@@ -179,24 +209,16 @@
         };
 
 
-        /**
-         * Sets the specified key name in the list of pressed keys to false.
-         * Used to manually interrupt a key press.
-         * @argument {String} keyName - The name of a key to interrupt.
-         */
-        KeyHandler.interrupt = function(keyName) {
-            if (pressedKeys.hasOwnProperty(keyName) && pressedKeys[keyName]) {
-                pressedKeys[keyName] = false;
-            }
-        };
-
-
         // Listen for key presses and releases.
         document.addEventListener('keydown', pressKey);
         document.addEventListener('keyup', releaseKey);
-    })(exports.Key = {});
+    })(exports.KeyHandler = {});
 
 
+    /**
+     * @namespace
+     * @property Object
+     */
     (function() {
         // Provide cross-browser support for requestAnimationFrame.
         var requestAnimationFrame = (function(){
@@ -234,6 +256,7 @@
             }
 
 
+            // Recursively call the next step in the game's animation loop.
             requestAnimationFrame(updateAndRedrawObjects);
         };
 
@@ -264,6 +287,7 @@
          * @method __updateFunction
          */
         exports.Object = function() {
+            // At the moment, object identifiers are their index in the object list.
             var objectID = objectList.length;
 
 
@@ -274,6 +298,7 @@
             });
 
 
+            // Add this object to the object list.
             objectList.push(this);
 
 
@@ -281,6 +306,9 @@
                 isVisible = true;
 
 
+            /**
+             * @private
+             */
             Object.defineProperty(this, '__isActive', {
                 get: function() {
                     return isActive;
@@ -291,6 +319,9 @@
             });
 
 
+            /**
+             * @private
+             */
             Object.defineProperty(this, '__isVisible', {
                 get: function() {
                     return isVisible;
@@ -301,16 +332,25 @@
             });
 
 
+            /**
+             * @private
+             */
             Object.defineProperty(this, '__keyPressEvents', {
                 value: {}
             });
 
 
+            /**
+             * @private
+             */
             Object.defineProperty(this, '__keyReleaseEvents', {
                 value: {}
             });
 
 
+            /**
+             * @private
+             */
             Object.defineProperty(this, '__initialProperties', {
                 value: {}
             });
@@ -318,7 +358,7 @@
 
 
         /**
-         * Destroys a specific game object.
+         * Destroys the specified game object.
          */
         Object.defineProperty(exports.Object.prototype, 'destroy', {
             value: function() {
@@ -475,7 +515,7 @@
                 /* Create a wrapper function to execute the user-defined callback.
                    Bind it to the current object. */
                 this.__keyReleaseEvents[keyName] = function(e) {
-                    if (this.__isActive && exports.Key.getKeyName(e) === keyName) {
+                    if (this.__isActive && exports.KeyHandler.getKeyName(e) === keyName) {
                         callback();
                     }
                 }.bind(this);
@@ -540,7 +580,7 @@
 
                 // Execute all attached key events.
                 for (var keyEvent in this.__keyPressEvents) {
-                    if (exports.Key.isPressed(keyEvent)) {
+                    if (exports.KeyHandler.isPressed(keyEvent)) {
                         this.__keyPressEvents[keyEvent].call(this);
                     }
                 }
